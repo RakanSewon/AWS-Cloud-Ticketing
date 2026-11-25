@@ -5,7 +5,7 @@ BASE_URL="https://xjtrmtjeflv4hmrksbf5uju6tq0ejoyv.lambda-url.us-east-1.on.aws"
 echo "=== 1. CREATE TICKET (POST /tickets) ==="
 CREATE_RES=$(curl -s -X POST "$BASE_URL/tickets" \
   -H "Content-Type: application/json" \
-  -d '{"event_name": "Konser Musik Kampus 2026", "buyer_name": "Rakan", "seat_category": "VIP"}')
+  -d '{"event_name": "Paramore Jogja 2026", "buyer_name": "Rakan", "seat_category": "VIP"}')
 echo "$CREATE_RES"
 
 # Ekstrak ticket_id dari respons JSON menggunakan Python

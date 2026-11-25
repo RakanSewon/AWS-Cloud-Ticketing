@@ -1,7 +1,5 @@
 # AWS-Cloud-Ticketing
 
-Berikut adalah rincian teknis arsitektur **Serverless E-Ticketing API (Track C)** yang bisa langsung kamu terapkan pada diagram arsitektur dan *Design Brief*.
-
 ### 1. Alur Permintaan & Data (*Request & Data Flow*)
 
 1. **Client Layer (Postman / cURL):** Mengirimkan permintaan HTTP (`POST`, `GET`, `PUT`, `DELETE`) dalam format JSON melalui protokol HTTPS menuju *Invoke URL* publik milik API Gateway.

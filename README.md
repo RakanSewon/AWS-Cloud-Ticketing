@@ -17,8 +17,6 @@ Sistem dibangun sepenuhnya di atas layanan *managed serverless* pada region **`u
 
 > **Catatan Adaptasi Arsitektur:** Komponen Lambda Function URL dan Amazon S3 dipilih sebagai substitusi langsung untuk API Gateway dan DynamoDB karena pembatasan izin IAM pada *sandbox* AWS Academy Learner Lab (`apigateway:POST` dan `dynamodb:CreateTable` tidak diizinkan), dengan tetap mempertahankan prinsip desain *stateless serverless* dan *pay-per-use*.
 
-Diagram arsitektur lengkap tersedia pada [`docs/architecture-diagram.png`](docs/architecture-diagram.png).
-
 ---
 
 Untuk saat ini, proyek sedang tahap awal dengan tujuan utama untuk mengimplementasikan konsep fundamental dalam membangun aplikasi serverless. Rencana pengembangan kedepannya berupa frontend sederhana, sistem rebutan (queue), serta status ketersediaan.

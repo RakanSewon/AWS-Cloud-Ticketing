@@ -1,74 +1,24 @@
-# AWS-Cloud-Ticketing
+# Serverless E-Ticketing REST API (AWS Track C)
 
-### 1. Alur Permintaan & Data (*Request & Data Flow*)
+Proyek ini merupakan implementasi infrastruktur komputasi awan berbasis arsitektur **Serverless (Track C)** untuk layanan manajemen tiket acara (*E-Ticketing*). Sistem menyediakan operasi CRUD (*Create, Read, Update, Delete*) melalui endpoint HTTPS publik menggunakan **AWS Lambda Function URL** dan **Amazon S3** sebagai penyimpanan dokumen JSON.
 
-1. **Client Layer (Postman / cURL):** Mengirimkan permintaan HTTP (`POST`, `GET`, `PUT`, `DELETE`) dalam format JSON melalui protokol HTTPS menuju *Invoke URL* publik milik API Gateway.
-2. **Ingress Layer (Amazon API Gateway — HTTP API):**
-* Menerima permintaan masuk dan mencocokkan metode HTTP serta jalur URL (`/tickets` atau `/tickets/{ticket_id}`).
-* Melakukan integrasi *proxy* (*Lambda Proxy Integration*), yaitu meneruskan seluruh *payload* permintaan (`headers`, `pathParameters`, `body`) secara langsung ke fungsi Lambda.
-
-
-3. **Compute Layer (AWS Lambda — `TicketHandlerFunction`):**
-* Menerima objek *event* dari API Gateway.
-* Mengekstrak rute dan metode HTTP untuk menentukan operasi CRUD yang diminta.
-* Menjalankan validasi input dasar, membuat ID unik (`uuid4`) serta *timestamp* (untuk operasi `POST`), lalu memanggil AWS SDK (`boto3` untuk Python atau `@aws-sdk/client-dynamodb` untuk Node.js).
-* Mengembalikan respons HTTP standar (kode status `200`, `201`, `400`, `404`, atau `500`) beserta *body* JSON kembali ke API Gateway.
-
-
-4. **Storage Layer (Amazon DynamoDB — `TicketsTable`):**
-* Mengeksekusi operasi baca/tulis berbasis *key-value* dengan latensi satu digit milidetik.
-* **Skema Tabel:**
-* *Table Name:* `TicketsTable`
-* *Partition Key (PK):* `ticket_id` (`String`)
-* *Sort Key:* Tidak digunakan (cukup PK tunggal untuk mempercepat pencarian langsung berdasarkan ID tiket).
-* *Capacity Mode:* `On-Demand` (menyesuaikan kapasitas baca/tulis secara otomatis tanpa perlu *provisioning* RCU/WCU manual).
-
-
-
-
-5. **Observability Layer (Amazon CloudWatch Logs):**
-* Setiap eksekusi fungsi Lambda otomatis mengirimkan log standar (*stdout/stderr*, durasi eksekusi, dan *error traceback*) ke *Log Group* `/aws/lambda/TicketHandlerFunction`.
-
-
+<img width="750" height="362" alt="aws drawio" src="https://github.com/user-attachments/assets/16b70593-b155-40f4-9563-100ed61d1186" />
 
 ---
 
-### 2. Arsitektur Keamanan & IAM (*Security & Identity*)
+## Arsitektur Sistem
 
-Untuk memenuhi kriteria diagram *"Label planned components, data flow, IAM/security"*, sertakan elemen keamanan berikut:
+Sistem dibangun sepenuhnya di atas layanan *managed serverless* pada region **`us-east-1` (N. Virginia)** di lingkungan **AWS Academy Learner Lab**:
 
-* **Enkripsi Transit:** Komunikasi antara Klien $\rightarrow$ API Gateway $\rightarrow$ Lambda $\rightarrow$ DynamoDB seluruhnya terenkripsi menggunakan **TLS/HTTPS**.
-* **Resource-Based Policy (API Gateway $\rightarrow$ Lambda):**
-* API Gateway diberi izin eksplisit melalui kebijakan berbasis sumber daya untuk memicu fungsi Lambda (`lambda:InvokeFunction`) khusus dari ARN API Gateway terkait.
+* **Ingress & Compute:** **AWS Lambda (`TicketHandlerFunction` - Python 3.12)** yang mengekspos antarmuka HTTP langsung melalui **Lambda Function URL** (`Auth Type: NONE`, CORS aktif).
+* **Storage Layer:** **Amazon S3 (`e-ticketing-json-storage-...`)** yang menyimulasikan pola penyimpanan *key-value* dengan menyimpan setiap entitas tiket sebagai objek JSON terpisah pada jalur `tickets/{ticket_id}.json`.
+* **Security & IAM:** Menggunakan IAM Role bawaan **`LabRole`** pada fungsi Lambda untuk mengakses S3 dan CloudWatch. Bucket S3 dikonfigurasi dengan *Block All Public Access* aktif dan enkripsi bawaan *SSE-S3*.
+* **Networking & Observability:** Berjalan pada jaringan terkelola AWS (*AWS Managed Network / Non-VPC*) tanpa memerlukan NAT Gateway atau Security Group kustom, serta terintegrasi otomatis dengan **Amazon CloudWatch Logs**.
 
+> **Catatan Adaptasi Arsitektur:** Komponen Lambda Function URL dan Amazon S3 dipilih sebagai substitusi langsung untuk API Gateway dan DynamoDB karena pembatasan izin IAM pada *sandbox* AWS Academy Learner Lab (`apigateway:POST` dan `dynamodb:CreateTable` tidak diizinkan), dengan tetap mempertahankan prinsip desain *stateless serverless* dan *pay-per-use*.
 
-* **Execution Role / Identity-Based Policy (Lambda $\rightarrow$ DynamoDB & CloudWatch):**
-* Menggunakan IAM Role bawaan AWS Academy Learner Lab bernama **`LabRole`**.
-* Pada panah koneksi dari **Lambda ke DynamoDB**, beri label izin spesifik (*least-privilege scope* secara konseptual): `dynamodb:PutItem`, `dynamodb:GetItem`, `dynamodb:UpdateItem`, `dynamodb:DeleteItem`.
-* Pada panah koneksi dari **Lambda ke CloudWatch**, beri label izin: `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents`.
-
-
+Diagram arsitektur lengkap tersedia pada [`docs/architecture-diagram.png`](docs/architecture-diagram.png).
 
 ---
 
-### 3. Arsitektur Jaringan (*Network Architecture*)
-
-* **AWS Managed Network (Non-VPC Lambda):** Fungsi Lambda berjalan di dalam jaringan terkelola milik AWS (*AWS-managed VPC*), bukan di dalam VPC kustom pengguna.
-* **Keuntungan Desain:** Lambda memiliki akses keluar langsung ke *endpoint* publik internal layanan AWS (DynamoDB dan CloudWatch) melalui *backbone* jaringan AWS yang aman. Kamu tidak perlu membuat *Private Subnet*, *NAT Gateway*, maupun *VPC Endpoint* yang berpotensi menguras kredit AWS Learner Lab.
-
----
-
-### 4. Panduan Menggambar Diagram (Draw.io / Lucidchart / Excalidraw)
-
-Susun komponen dari kiri ke kanan dengan pengelompokan (*boundary box*) berikut agar mudah dibaca dosen/asisten:
-
-1. **Di luar kotak AWS Cloud (Kiri):**
-* Ikon **Client / User (Postman / cURL)** $\xrightarrow{\text{HTTPS / JSON}}$
-
-
-2. **Di dalam kotak utama `AWS Cloud (Region: us-east-1)`:**
-* **Amazon API Gateway** (beri label rute: `POST /tickets`, `GET /tickets/{id}`, `PUT /tickets/{id}`, `DELETE /tickets/{id}`)
-* Panah dari API Gateway ke Lambda dengan label: `InvokeFunction (Resource Policy)`
-* **AWS Lambda (`TicketHandlerFunction`)** yang ditempeli ikon badge **IAM Role (`LabRole`)**
-* Panah dari Lambda ke bawah menuju **Amazon CloudWatch Logs** dengan label: `PutLogEvents`
-* Panah dari Lambda ke kanan menuju **Amazon DynamoDB (`TicketsTable`)** dengan label: `PutItem, GetItem, UpdateItem, DeleteItem (HTTPS)`
+Untuk saat ini, proyek sedang tahap awal dengan tujuan utama untuk mengimplementasikan konsep fundamental dalam membangun aplikasi serverless. Rencana pengembangan kedepannya berupa frontend sederhana, sistem rebutan (queue), serta status ketersediaan.
